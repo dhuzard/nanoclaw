@@ -41,7 +41,10 @@ const URGENT_LABELS = [
   'priority:high',
 ];
 
-export function fetchIssues(repo: string, filters: IssueFilters = {}): GhIssue[] {
+export function fetchIssues(
+  repo: string,
+  filters: IssueFilters = {},
+): GhIssue[] {
   const args = [
     'issue',
     'list',

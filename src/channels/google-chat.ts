@@ -198,7 +198,10 @@ export class GoogleChatChannel implements Channel {
       } catch (err) {
         // Intentionally not acking — message remains in the subscription
         // and will be redelivered after the ack deadline expires.
-        logger.warn({ err }, 'Google Chat: failed to process event; will retry');
+        logger.warn(
+          { err },
+          'Google Chat: failed to process event; will retry',
+        );
       }
 
       if (accepted) ackIds.push(item.ackId);
@@ -262,7 +265,13 @@ export class GoogleChatChannel implements Channel {
     const senderName = msg.sender?.displayName ?? sender;
     const timestamp = msg.createTime ?? new Date().toISOString();
 
-    this.opts.onChatMetadata(chatJid, timestamp, spaceName, 'google-chat', false);
+    this.opts.onChatMetadata(
+      chatJid,
+      timestamp,
+      spaceName,
+      'google-chat',
+      false,
+    );
 
     this.opts.onMessage(chatJid, {
       id: msgName,

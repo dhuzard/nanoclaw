@@ -33,7 +33,8 @@ export interface PRFilters {
 
 export function scorePR(pr: GhPR, username?: string): number {
   let score = 0;
-  if (username && pr.reviewRequests.some((r) => r.login === username)) score += 100;
+  if (username && pr.reviewRequests.some((r) => r.login === username))
+    score += 100;
   const hasFailing = pr.statusCheckRollup.some(
     (c) =>
       c.conclusion === 'FAILURE' ||
@@ -44,7 +45,8 @@ export function scorePR(pr: GhPR, username?: string): number {
   if (pr.mergeable === 'CONFLICTING') score += 40;
   if (pr.reviewDecision === 'CHANGES_REQUESTED') score += 30;
   if (pr.reviewDecision === 'REVIEW_REQUIRED') score += 20;
-  const staleDays = (Date.now() - new Date(pr.updatedAt).getTime()) / 86_400_000;
+  const staleDays =
+    (Date.now() - new Date(pr.updatedAt).getTime()) / 86_400_000;
   if (staleDays > 14) score += 10;
   if (pr.isDraft) score -= 50;
   return score;
@@ -105,7 +107,8 @@ export function categorizePRs(prs: GhPR[], username?: string): CategorizedPRs {
 // CLI entry point: npm run github:pulls [-- owner/repo] [--username alice] [--label foo] [--days 7]
 const isMain =
   process.argv[1] != null &&
-  (process.argv[1].endsWith('pulls.ts') || process.argv[1].endsWith('pulls.js'));
+  (process.argv[1].endsWith('pulls.ts') ||
+    process.argv[1].endsWith('pulls.js'));
 
 if (isMain) {
   const argv = process.argv.slice(2);

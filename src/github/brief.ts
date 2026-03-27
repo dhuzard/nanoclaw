@@ -1,10 +1,6 @@
 import { fetchIssues, categorizeIssues } from './issues.js';
 import { fetchPulls, categorizePRs, scorePR } from './pulls.js';
-import {
-  formatBriefSummary,
-  type RepoBrief,
-  type TopPR,
-} from './format.js';
+import { formatBriefSummary, type RepoBrief, type TopPR } from './format.js';
 import { loadConfig } from './config.js';
 
 export function generateBrief(repos: string[], username?: string): string {
@@ -17,7 +13,11 @@ export function generateBrief(repos: string[], username?: string): string {
     const prs = fetchPulls(repo);
     const catPRs = categorizePRs(prs, username);
 
-    const nonDraft = [...catPRs.needsAttention, ...catPRs.inReview, ...catPRs.others];
+    const nonDraft = [
+      ...catPRs.needsAttention,
+      ...catPRs.inReview,
+      ...catPRs.others,
+    ];
     for (const pr of nonDraft) {
       const score = scorePR(pr, username);
       if (score > 0) {
@@ -57,7 +57,8 @@ export function generateBrief(repos: string[], username?: string): string {
 // CLI entry point: npm run github:brief [-- repo1 repo2 ...] [--username alice]
 const isMain =
   process.argv[1] != null &&
-  (process.argv[1].endsWith('brief.ts') || process.argv[1].endsWith('brief.js'));
+  (process.argv[1].endsWith('brief.ts') ||
+    process.argv[1].endsWith('brief.js'));
 
 if (isMain) {
   const argv = process.argv.slice(2);
@@ -75,7 +76,8 @@ if (isMain) {
   const resolvedRepos =
     repos.length > 0
       ? repos
-      : (config.trackedRepos ?? (config.defaultRepo ? [config.defaultRepo] : []));
+      : (config.trackedRepos ??
+        (config.defaultRepo ? [config.defaultRepo] : []));
 
   if (resolvedRepos.length === 0) {
     console.error(

@@ -68,6 +68,39 @@ or create `extend-image-gchat`.
 
 ---
 
+### Google Tasks integration
+
+Read, create, complete, and manage Google Tasks from NanoClaw agents via the
+Google Tasks REST API. Agents can list tasks, add new ones, mark them done,
+and surface due tasks proactively.
+
+**Skill:** `/add-google-tasks` (to be created)
+
+- [ ] Decide auth model — service account (same GCP project as GChat) or OAuth per-user
+- [ ] Enable Tasks API: `tasks.googleapis.com` in GCP Console
+- [ ] Add `GOOGLE_TASKS_CREDENTIALS` (or reuse `gchat-credentials.json`) to `.env`
+- [ ] Implement `src/tools/google-tasks.ts`:
+      - `listTaskLists()` — fetch all task lists
+      - `listTasks(taskListId, options)` — list tasks, filter by due date / status
+      - `createTask(taskListId, title, notes?, due?)` — add a task
+      - `completeTask(taskListId, taskId)` — mark task as completed
+      - `deleteTask(taskListId, taskId)` — delete a task
+- [ ] Expose as IPC tools so container agents can call them
+- [ ] Container skill: teach agent when to call Google Tasks tools
+      (e.g. "add X to my tasks", "what's due today", "mark X done")
+- [ ] Optional: proactive morning brief — agent lists overdue + today's tasks on first message
+
+**Design notes:**
+- Reuse `~/.config/nanoclaw/gchat-credentials.json` service account if it has
+  `https://www.googleapis.com/auth/tasks` scope; otherwise add a separate OAuth token.
+- Tasks are user-scoped; service account delegation (domain-wide) needed for
+  Workspace accounts — simpler to use per-user OAuth for personal Google accounts.
+- No webhook/push available — poll on-demand only (no background polling needed).
+
+**Dependency:** GCP project set up (shared with /add-gchat). Tasks API must be enabled.
+
+---
+
 ### Metadatapp MCP integration
 
 Push and sync structured data between NanoClaw agents and Metadatapp via an
@@ -100,6 +133,7 @@ tools to fetch, update, or sync records.
 | `/add-voice-transcription` | ✅ applied | WhatsApp + Whisper API |
 | `/use-local-whisper` | ⬜ not applied | Apple Silicon local transcription |
 | `/add-image-vision` | ✅ applied | WhatsApp image → multimodal via sharp |
+| `/add-google-tasks` | 📝 planned | Read/create/complete Google Tasks |
 | `/add-metadatapp` | 📝 stub created | Metadatapp MCP push/sync |
 | `/add-github-triage` | ✅ applied (v2) | Multi-repo, PR scoring, daily brief |
 | `/add-gmail` | ✅ applied | Gmail channel + tools |
@@ -114,3 +148,5 @@ tools to fetch, update, or sync records.
 - **Metadatapp webhooks** — Metadatapp pushes events to NanoClaw (reverse sync)
 - **Cross-channel ID tracking** — same Metadatapp record referenced across
   WhatsApp, GChat, and email threads
+- **Google Tasks due-date reminders** — proactive agent message when a task is due today
+- **Google Tasks ↔ Metadatapp sync** — tasks created in NanoClaw synced as Metadatapp records

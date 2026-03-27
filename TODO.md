@@ -97,9 +97,9 @@ tools to fetch, update, or sync records.
 | Skill | Status | Notes |
 |-------|--------|-------|
 | `/add-gchat` | 🔄 in progress | GCP setup paused |
-| `/add-voice-transcription` | ⬜ not applied | WhatsApp + Whisper API |
+| `/add-voice-transcription` | ✅ applied | WhatsApp + Whisper API |
 | `/use-local-whisper` | ⬜ not applied | Apple Silicon local transcription |
-| `/add-image-vision` | ⬜ not applied | WhatsApp image → multimodal |
+| `/add-image-vision` | ✅ applied | WhatsApp image → multimodal via sharp |
 | `/add-metadatapp` | 📝 stub created | Metadatapp MCP push/sync |
 | `/add-github-triage` | ✅ applied (v2) | Multi-repo, PR scoring, daily brief |
 | `/add-gmail` | ✅ applied | Gmail channel + tools |

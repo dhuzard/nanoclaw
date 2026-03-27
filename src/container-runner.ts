@@ -177,6 +177,26 @@ function buildVolumeMounts(
     });
   }
 
+  // GitHub CLI auth (read-only) so gh commands work inside the container
+  const ghConfigDir = path.join(homeDir, '.config', 'gh');
+  if (fs.existsSync(ghConfigDir)) {
+    mounts.push({
+      hostPath: ghConfigDir,
+      containerPath: '/home/node/.config/gh',
+      readonly: true,
+    });
+  }
+
+  // NanoClaw config (read-only) so github.json default repos are available
+  const nanocawConfigDir = path.join(homeDir, '.config', 'nanoclaw');
+  if (fs.existsSync(nanocawConfigDir)) {
+    mounts.push({
+      hostPath: nanocawConfigDir,
+      containerPath: '/home/node/.config/nanoclaw',
+      readonly: true,
+    });
+  }
+
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = resolveGroupIpcPath(group.folder);

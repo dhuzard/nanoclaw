@@ -1,6 +1,6 @@
 ---
 name: github-pr-review-summary
-description: Fetch and summarize open GitHub pull requests for a repo. Highlights PRs needing attention (approved/changes-requested), in review, drafts, and others. Uses the default repo from ~/.config/nanoclaw/github.json or an explicit owner/repo argument.
+description: Fetch and summarize open GitHub pull requests for a repo. Highlights PRs needing attention (approved/changes-requested), in review, drafts, and others. PRs within each bucket are ranked by attention score (reviewer requested, failing checks, conflicts, staleness). Uses the default repo from ~/.config/nanoclaw/github.json or an explicit owner/repo argument.
 ---
 
 # GitHub PR Review Summary
@@ -14,19 +14,22 @@ Confirm `src/github/pulls.ts` exists. If not, tell the user to run `/add-github-
 
 ## Usage
 
-Parse the user's message for an explicit `owner/repo` argument. Common forms:
+Parse the user's message for an optional `owner/repo` argument and filters. Common forms:
 - `/github-pr-review-summary` — use default repo
 - `/github-pr-review-summary owner/repo` — use the given repo
-- `/github-pr-review-summary for owner/repo` — same
+- `/github-pr-review-summary owner/repo --label hotfix` — filter by label
+- `/github-pr-review-summary owner/repo --days 7` — PRs updated in last 7 days
 
 ## Run
 
 ```bash
-# default repo
-npx tsx src/github/pulls.ts
+# default repo (uses username from config for scoring)
+npm run github:pulls
 
-# explicit repo
-npx tsx src/github/pulls.ts owner/repo
+# with repo and optional filters
+npm run github:pulls -- owner/repo
+npm run github:pulls -- owner/repo --label hotfix
+npm run github:pulls -- owner/repo --username alice --days 14
 ```
 
 ## Output
@@ -53,7 +56,8 @@ Present the command output directly to the user. It is already formatted for cha
 ```
 
 **Priority order:** Needs attention first (approved = act now, changes requested = reply
-needed), then in review, then open, then drafts.
+needed), then in review, then open, then drafts. Within each bucket PRs are ranked by
+attention score: reviewer explicitly requested > failing checks > merge conflicts > stale.
 
 ## Error handling
 

@@ -1,13 +1,12 @@
 ---
 name: add-github-triage
-description: Set up read-only GitHub triage for NanoClaw. Verifies gh CLI, configures auth from GITHUB_TOKEN, saves a default owner/repo, and explains /github-issues-summary and /github-pr-review-summary.
+description: Set up read-only GitHub triage for NanoClaw (v2). Verifies gh CLI, configures auth, saves default repo, tracked repos, and GitHub username. Enables /github-issues-summary, /github-pr-review-summary, and /github-daily-brief.
 ---
 
 # Add GitHub Triage
 
-This skill adds read-only GitHub triage to NanoClaw. Once set up, you can run
-`/github-issues-summary` and `/github-pr-review-summary` to get concise chat-friendly
-summaries of open issues and PRs.
+This skill adds read-only GitHub triage to NanoClaw. Once set up you can run
+`/github-issues-summary`, `/github-pr-review-summary`, and `/github-daily-brief`.
 
 ## Phase 1: Pre-flight
 
@@ -49,9 +48,10 @@ If the branch is already the current branch (i.e. the user is already on
 This brings in:
 - `src/github/client.ts` — thin wrapper that shells out to `gh` and injects `GH_TOKEN`
 - `src/github/config.ts` — reads/writes `~/.config/nanoclaw/github.json`
-- `src/github/issues.ts` — fetch, categorize, and format open issues
-- `src/github/pulls.ts` — fetch, categorize, and format open PRs
+- `src/github/issues.ts` — fetch, categorize, and format open issues (with filters)
+- `src/github/pulls.ts` — fetch, score, and format open PRs (with filters)
 - `src/github/format.ts` — shared chat-friendly formatters
+- `src/github/brief.ts` — multi-repo combined daily brief
 
 ### Validate
 
@@ -86,53 +86,60 @@ grep -q '^GITHUB_TOKEN=' .env 2>/dev/null || echo 'GITHUB_TOKEN=<paste token her
 ```
 
 Tell the user to replace `<paste token here>` with their actual token (classic token with
-`repo` scope, or a fine-grained token with read access to the target repos).
+`repo` scope, or fine-grained with read access to the target repos).
 
-Verify auth works with the token (if provided):
-
-```bash
-GITHUB_TOKEN=$(grep '^GITHUB_TOKEN=' .env 2>/dev/null | cut -d= -f2-) \
-  GH_TOKEN="$GITHUB_TOKEN" gh auth status
-```
-
-## Phase 4: Configure Default Repo
+## Phase 4: Configure Repos and Username
 
 Ask the user with `AskUserQuestion`:
 
-> What is your default GitHub repo for triage? (format: `owner/repo`)
-> You can override this at runtime by passing a repo to each command.
+> 1. What is your **default GitHub repo** for triage? (format: `owner/repo`)
+> 2. Do you have **additional repos** to track? (comma-separated, or leave blank)
+> 3. What is your **GitHub username**? (used to score PRs where you're a requested reviewer)
 
-Save it to `~/.config/nanoclaw/github.json`:
+Save all to `~/.config/nanoclaw/github.json`:
 
 ```bash
-mkdir -p ~/.config/nanoclaw
 node -e "
 const fs = require('fs');
 const p = process.env.HOME + '/.config/nanoclaw/github.json';
 const cfg = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf-8')) : {};
-cfg.defaultRepo = '<owner/repo the user provided>';
+cfg.defaultRepo = '<defaultRepo>';
+cfg.trackedRepos = '<comma-separated repos>'.split(',').map(s => s.trim()).filter(Boolean);
+if (!cfg.trackedRepos.includes(cfg.defaultRepo)) cfg.trackedRepos.unshift(cfg.defaultRepo);
+cfg.username = '<github username>';
+fs.mkdirSync(require('path').dirname(p), {recursive: true});
 fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n');
-console.log('Saved:', cfg);
+console.log('Saved:', JSON.stringify(cfg, null, 2));
 "
 ```
+
+If the user has only one repo, `trackedRepos` will be `["owner/repo"]`.
+If they skip username, omit the `cfg.username` line.
 
 ## Phase 5: Smoke Test
 
 ```bash
-npx tsx src/github/issues.ts
+npm run github:issues
 ```
 
 Expected: a formatted summary of open issues for the default repo.
-If it fails, check:
-- gh auth status
-- GITHUB_TOKEN value in .env
-- that the repo name is correct
 
 ```bash
-npx tsx src/github/pulls.ts
+npm run github:pulls
 ```
 
 Expected: a formatted summary of open PRs.
+
+```bash
+npm run github:brief
+```
+
+Expected: a combined brief across all tracked repos.
+
+If any command fails, check:
+- `gh auth status`
+- `GITHUB_TOKEN` value in `.env`
+- that the repo names are correct in `~/.config/nanoclaw/github.json`
 
 ## Phase 6: Done
 
@@ -141,10 +148,11 @@ Tell the user:
 > GitHub triage is ready. Available commands:
 >
 > - `/github-issues-summary` — open issues grouped by blockers / urgent / normal
-> - `/github-pr-review-summary` — open PRs grouped by review status
+> - `/github-pr-review-summary` — open PRs ranked by attention score
+> - `/github-daily-brief` — combined brief across all tracked repos
 >
-> Both commands use `<default repo>` by default. Pass `owner/repo` as an argument to
-> override for a one-off query.
+> All commands use `<defaultRepo>` by default. Pass `owner/repo` as an argument to
+> override for a one-off query. Filters: `--label`, `--assignee`, `--days`.
 
 ## Troubleshooting
 
@@ -156,22 +164,26 @@ Tell the user:
 
 ### `Cannot find module` errors
 
-Run `npm run build` to recompile. The skill files need to be compiled to `dist/` before
-`node` can run them (tsx handles this automatically).
+Run `npm run build` to recompile.
 
 ### Config file not found
 
-The default repo is stored in `~/.config/nanoclaw/github.json`. Run `/add-github-triage`
-again to recreate it, or create it manually:
+The config is stored in `~/.config/nanoclaw/github.json`. Recreate it manually:
 
 ```bash
-mkdir -p ~/.config/nanoclaw
-echo '{"defaultRepo":"owner/repo"}' > ~/.config/nanoclaw/github.json
+cat > ~/.config/nanoclaw/github.json << 'EOF'
+{
+  "defaultRepo": "owner/repo",
+  "trackedRepos": ["owner/repo"],
+  "username": "your-github-username"
+}
+EOF
 ```
 
 ## Removal
 
 1. Delete `src/github/` directory
-2. Remove `GITHUB_TOKEN` from `.env` if added
-3. Remove `~/.config/nanoclaw/github.json` if desired
-4. Run `npm run build`
+2. Remove `github:issues`, `github:pulls`, `github:brief` scripts from `package.json`
+3. Remove `GITHUB_TOKEN` from `.env` if added
+4. Remove `~/.config/nanoclaw/github.json` if desired
+5. Run `npm run build`

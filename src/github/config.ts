@@ -2,10 +2,17 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-const CONFIG_PATH = path.join(os.homedir(), '.config', 'nanoclaw', 'github.json');
+const CONFIG_PATH = path.join(
+  os.homedir(),
+  '.config',
+  'nanoclaw',
+  'github.json',
+);
 
 export interface GithubConfig {
   defaultRepo?: string;
+  trackedRepos?: string[];
+  username?: string;
 }
 
 export function loadConfig(): GithubConfig {

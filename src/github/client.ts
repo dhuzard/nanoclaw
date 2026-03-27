@@ -15,8 +15,16 @@ export function ghJson<T>(args: string[]): T {
     });
     return JSON.parse(out) as T;
   } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      (err as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      throw new Error('gh CLI not found. Install from https://cli.github.com');
+    }
     const stderr =
-      err instanceof Error && 'stderr' in err ? String((err as NodeJS.ErrnoException & { stderr: unknown }).stderr) : '';
+      err instanceof Error && 'stderr' in err
+        ? String((err as NodeJS.ErrnoException & { stderr: unknown }).stderr)
+        : '';
     const base = err instanceof Error ? err.message : String(err);
     throw new Error(`gh CLI failed: ${stderr || base}`);
   }
@@ -41,6 +49,8 @@ export function checkGhAuth(): void {
     const hint = process.env.GITHUB_TOKEN
       ? 'GITHUB_TOKEN is set but gh rejected it — verify the token has repo scope.'
       : 'Not authenticated. Set GITHUB_TOKEN in .env or run: gh auth login';
-    throw new Error(`gh auth check failed: ${hint}\n${err instanceof Error ? err.message : ''}`);
+    throw new Error(
+      `gh auth check failed: ${hint}\n${err instanceof Error ? err.message : ''}`,
+    );
   }
 }

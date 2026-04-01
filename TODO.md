@@ -26,7 +26,9 @@ No gcloud — all steps via browser Console.
       IAM: nanoclaw-gchat SA → roles/pubsub.subscriber on subscription
 [ ] Phase 5 — Chat App configured: Connection settings → Cloud Pub/Sub
       Topic: projects/static-operator-491509-c2/topics/nanoclaw-gchat
-[ ] Phase 6 — GCHAT_SUBSCRIPTION in .env, build, restart
+[x] Phase 6 — GCHAT_SUBSCRIPTION in .env, build passes
+      GCHAT_SUBSCRIPTION=projects/static-operator-491509-c2/subscriptions/nanoclaw-gchat-sub
+      [ ] restart after Phase 3–5 are done
 [ ] Phase 7 — Bot added to DM, space registered as NanoClaw group
 [ ] Phase 8 — Smoke test: inbound DM received + reply sent
 ```

@@ -77,9 +77,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
               // Atomically claim the file before reading — prevents double-processing
               // if the process crashes between read and delete.
               fs.renameSync(filePath, processingPath);
-              const data = JSON.parse(
-                fs.readFileSync(processingPath, 'utf-8'),
-              );
+              const data = JSON.parse(fs.readFileSync(processingPath, 'utf-8'));
               if (data.type === 'message' && data.chatJid && data.text) {
                 // Authorization: verify this group can send to this chatJid
                 const targetGroup = registeredGroups[data.chatJid];
@@ -140,9 +138,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
               // Atomically claim the file before reading — prevents double-processing
               // if the process crashes between read and delete.
               fs.renameSync(filePath, processingPath);
-              const data = JSON.parse(
-                fs.readFileSync(processingPath, 'utf-8'),
-              );
+              const data = JSON.parse(fs.readFileSync(processingPath, 'utf-8'));
               // Pass source group identity to processTaskIpc for authorization
               await processTaskIpc(data, sourceGroup, isMain, deps);
               fs.unlinkSync(processingPath);

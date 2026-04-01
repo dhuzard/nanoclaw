@@ -34,12 +34,17 @@ if (!client_id || !client_secret) {
 }
 
 const redirectUri = redirect_uris?.[0] || 'http://localhost:3000/callback';
-const port = parseInt(redirectUri.split(':').pop(), 10) || 3000;
+const port = redirectUri === 'http://localhost'
+  ? 8080
+  : parseInt(redirectUri.split(':').pop(), 10) || 3000;
+const actualRedirectUri = redirectUri === 'http://localhost'
+  ? `http://localhost:${port}/callback`
+  : redirectUri;
 
 const SCOPES = ['https://www.googleapis.com/auth/tasks'];
 const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
 authUrl.searchParams.set('client_id', client_id);
-authUrl.searchParams.set('redirect_uri', redirectUri);
+authUrl.searchParams.set('redirect_uri', actualRedirectUri);
 authUrl.searchParams.set('response_type', 'code');
 authUrl.searchParams.set('scope', SCOPES.join(' '));
 authUrl.searchParams.set('access_type', 'offline'); // Request refresh token
@@ -87,7 +92,7 @@ const server = http.createServer(async (req, res) => {
         code,
         client_id,
         client_secret,
-        redirect_uri: redirectUri,
+        redirect_uri: actualRedirectUri,
         grant_type: 'authorization_code',
       }).toString(),
     });
@@ -142,7 +147,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`🔗 Listening for callback on ${redirectUri}\n`);
+  console.log(`🔗 Listening for callback on ${actualRedirectUri}\n`);
 });
 
 server.on('error', (err) => {

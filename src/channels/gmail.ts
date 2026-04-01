@@ -226,6 +226,17 @@ export class GmailChannel implements Channel {
         },
         'Gmail poll failed',
       );
+      // After 10 consecutive failures the token is likely expired or revoked.
+      // Disconnect so isConnected() returns false, which surfaces the failure
+      // in logs rather than silently backing off indefinitely.
+      if (this.consecutiveErrors >= 10) {
+        logger.error(
+          { consecutiveErrors: this.consecutiveErrors },
+          'Gmail: too many consecutive poll failures, disconnecting. Re-run /add-gmail to re-authenticate.',
+        );
+        this.gmail = null;
+        this.oauth2Client = null;
+      }
     }
   }
 

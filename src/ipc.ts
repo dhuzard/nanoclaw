@@ -72,8 +72,14 @@ export function startIpcWatcher(deps: IpcDeps): void {
             .filter((f) => f.endsWith('.json'));
           for (const file of messageFiles) {
             const filePath = path.join(messagesDir, file);
+            const processingPath = filePath + '.processing';
             try {
-              const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              // Atomically claim the file before reading — prevents double-processing
+              // if the process crashes between read and delete.
+              fs.renameSync(filePath, processingPath);
+              const data = JSON.parse(
+                fs.readFileSync(processingPath, 'utf-8'),
+              );
               if (data.type === 'message' && data.chatJid && data.text) {
                 // Authorization: verify this group can send to this chatJid
                 const targetGroup = registeredGroups[data.chatJid];
@@ -93,7 +99,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   );
                 }
               }
-              fs.unlinkSync(filePath);
+              fs.unlinkSync(processingPath);
             } catch (err) {
               logger.error(
                 { file, sourceGroup, err },
@@ -101,10 +107,16 @@ export function startIpcWatcher(deps: IpcDeps): void {
               );
               const errorDir = path.join(ipcBaseDir, 'errors');
               fs.mkdirSync(errorDir, { recursive: true });
-              fs.renameSync(
-                filePath,
-                path.join(errorDir, `${sourceGroup}-${file}`),
-              );
+              // Move whichever file still exists (claimed or original) to errors
+              const toMove = fs.existsSync(processingPath)
+                ? processingPath
+                : filePath;
+              if (fs.existsSync(toMove)) {
+                fs.renameSync(
+                  toMove,
+                  path.join(errorDir, `${sourceGroup}-${file}`),
+                );
+              }
             }
           }
         }
@@ -123,11 +135,17 @@ export function startIpcWatcher(deps: IpcDeps): void {
             .filter((f) => f.endsWith('.json'));
           for (const file of taskFiles) {
             const filePath = path.join(tasksDir, file);
+            const processingPath = filePath + '.processing';
             try {
-              const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              // Atomically claim the file before reading — prevents double-processing
+              // if the process crashes between read and delete.
+              fs.renameSync(filePath, processingPath);
+              const data = JSON.parse(
+                fs.readFileSync(processingPath, 'utf-8'),
+              );
               // Pass source group identity to processTaskIpc for authorization
               await processTaskIpc(data, sourceGroup, isMain, deps);
-              fs.unlinkSync(filePath);
+              fs.unlinkSync(processingPath);
             } catch (err) {
               logger.error(
                 { file, sourceGroup, err },
@@ -135,10 +153,15 @@ export function startIpcWatcher(deps: IpcDeps): void {
               );
               const errorDir = path.join(ipcBaseDir, 'errors');
               fs.mkdirSync(errorDir, { recursive: true });
-              fs.renameSync(
-                filePath,
-                path.join(errorDir, `${sourceGroup}-${file}`),
-              );
+              const toMove = fs.existsSync(processingPath)
+                ? processingPath
+                : filePath;
+              if (fs.existsSync(toMove)) {
+                fs.renameSync(
+                  toMove,
+                  path.join(errorDir, `${sourceGroup}-${file}`),
+                );
+              }
             }
           }
         }

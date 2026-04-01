@@ -102,6 +102,19 @@ Standard Markdown works: `**bold**`, `*italic*`, `[links](url)`, `# headings`.
 
 ---
 
+## Google Tasks
+
+Use `mcp__tasks__*` tools to manage Google Tasks. Run `/google-tasks` for the full reference.
+
+Key patterns:
+- Always call `mcp__tasks__list_task_lists` first to get the task list ID
+- "Add X to my tasks" → `create_task` immediately, confirm in reply
+- "What's due today" → `list_tasks` with `dueMax` = end of today UTC
+- "Mark X done" → find task ID with `list_tasks`, then `complete_task`
+- Confirm before deleting; no confirmation needed for create/complete
+
+If the tools are unavailable, tell the user to set up `~/.config/nanoclaw/tasks-credentials.json`.
+
 ## Task Scripts
 
 For any recurring task, use `schedule_task`. Frequent agent invocations — especially multiple times a day — consume API credits and can risk account restrictions. If a simple check can determine whether action is needed, add a `script` — it runs first, and the agent is only called when the check passes. This keeps invocations to a minimum.

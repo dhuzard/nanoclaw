@@ -76,28 +76,25 @@ Read, create, complete, and manage Google Tasks from NanoClaw agents via the
 Google Tasks REST API. Agents can list tasks, add new ones, mark them done,
 and surface due tasks proactively.
 
-**Skill:** `/add-google-tasks` (to be created)
+**Skill:** `/add-google-tasks` — implemented as MCP server inside containers
 
-- [ ] Decide auth model — service account (same GCP project as GChat) or OAuth per-user
+- [x] Decide auth model — OAuth per-user (personal) or service account w/ delegation (Workspace)
 - [ ] Enable Tasks API: `tasks.googleapis.com` in GCP Console
-- [ ] Add `GOOGLE_TASKS_CREDENTIALS` (or reuse `gchat-credentials.json`) to `.env`
-- [ ] Implement `src/tools/google-tasks.ts`:
-      - `listTaskLists()` — fetch all task lists
-      - `listTasks(taskListId, options)` — list tasks, filter by due date / status
-      - `createTask(taskListId, title, notes?, due?)` — add a task
-      - `completeTask(taskListId, taskId)` — mark task as completed
-      - `deleteTask(taskListId, taskId)` — delete a task
-- [ ] Expose as IPC tools so container agents can call them
-- [ ] Container skill: teach agent when to call Google Tasks tools
-      (e.g. "add X to my tasks", "what's due today", "mark X done")
-- [ ] Optional: proactive morning brief — agent lists overdue + today's tasks on first message
+- [x] Credentials path: `~/.config/nanoclaw/tasks-credentials.json` (already mounted into containers)
+      Optional override: `GOOGLE_TASKS_CREDS_PATH` env var
+- [x] Implemented `container/agent-runner/src/tasks-mcp-stdio.ts`:
+      - `mcp__tasks__list_task_lists` — fetch all task lists
+      - `mcp__tasks__list_tasks` — list tasks, filter by due date / status
+      - `mcp__tasks__create_task` — add a task
+      - `mcp__tasks__complete_task` — mark task as completed
+      - `mcp__tasks__update_task` — update title / notes / due date
+      - `mcp__tasks__delete_task` — delete a task
+- [x] Wired into agent runner — enabled automatically when credentials file exists
+- [x] Container skill: `container/skills/google-tasks/` teaches agent natural-language patterns
+- [ ] Optional: proactive morning brief — schedule a daily task listing overdue + today's tasks
 
-**Design notes:**
-- Reuse `~/.config/nanoclaw/gchat-credentials.json` service account if it has
-  `https://www.googleapis.com/auth/tasks` scope; otherwise add a separate OAuth token.
-- Tasks are user-scoped; service account delegation (domain-wide) needed for
-  Workspace accounts — simpler to use per-user OAuth for personal Google accounts.
-- No webhook/push available — poll on-demand only (no background polling needed).
+**Remaining:** Enable `tasks.googleapis.com` in GCP Console, run OAuth flow, save token to
+`~/.config/nanoclaw/tasks-credentials.json`, restart NanoClaw.
 
 **Dependency:** GCP project set up (shared with /add-gchat). Tasks API must be enabled.
 

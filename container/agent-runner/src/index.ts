@@ -15,6 +15,7 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { query, HookCallback, PreCompactHookInput } from '@anthropic-ai/claude-agent-sdk';
@@ -359,6 +360,8 @@ async function runQuery(
   containerInput: ContainerInput,
   sdkEnv: Record<string, string | undefined>,
   resumeAt?: string,
+  tasksMcpServerPath?: string,
+  tasksEnabled?: boolean,
 ): Promise<{ newSessionId?: string; lastAssistantUuid?: string; closedDuringQuery: boolean }> {
   const stream = new MessageStream();
   stream.push(prompt);
@@ -449,6 +452,7 @@ async function runQuery(
         'NotebookEdit',
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
+        'mcp__tasks__*',
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -468,6 +472,17 @@ async function runQuery(
           command: 'npx',
           args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'],
         },
+        ...(tasksEnabled && tasksMcpServerPath ? {
+          tasks: {
+            command: 'node',
+            args: [tasksMcpServerPath] as string[],
+            env: {
+              ...(process.env.GOOGLE_TASKS_CREDS_PATH
+                ? { GOOGLE_TASKS_CREDS_PATH: process.env.GOOGLE_TASKS_CREDS_PATH }
+                : {}),
+            },
+          },
+        } : {}),
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook(containerInput.assistantName)] }],
@@ -581,6 +596,10 @@ async function main(): Promise<void> {
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
+  const tasksMcpServerPath = path.join(__dirname, 'tasks-mcp-stdio.js');
+  const tasksCreds = process.env.GOOGLE_TASKS_CREDS_PATH ||
+    path.join(os.homedir(), '.config', 'nanoclaw', 'tasks-credentials.json');
+  const tasksEnabled = fs.existsSync(tasksCreds);
 
   let sessionId = containerInput.sessionId;
   fs.mkdirSync(IPC_INPUT_DIR, { recursive: true });
@@ -625,7 +644,7 @@ async function main(): Promise<void> {
     while (true) {
       log(`Starting query (session: ${sessionId || 'new'}, resumeAt: ${resumeAt || 'latest'})...`);
 
-      const queryResult = await runQuery(prompt, sessionId, mcpServerPath, containerInput, sdkEnv, resumeAt);
+      const queryResult = await runQuery(prompt, sessionId, mcpServerPath, containerInput, sdkEnv, resumeAt, tasksMcpServerPath, tasksEnabled);
       if (queryResult.newSessionId) {
         sessionId = queryResult.newSessionId;
       }

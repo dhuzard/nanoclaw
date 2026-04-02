@@ -52,6 +52,7 @@ function createSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_next_run ON scheduled_tasks(next_run);
     CREATE INDEX IF NOT EXISTS idx_status ON scheduled_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_status_next_run ON scheduled_tasks(status, next_run);
 
     CREATE TABLE IF NOT EXISTS task_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +114,11 @@ function createSchema(database: Database.Database): void {
     /* column already exists */
   }
 
+  // Add composite index for getDueTasks() if it doesn't exist (migration for existing DBs)
+  database.exec(
+    `CREATE INDEX IF NOT EXISTS idx_status_next_run ON scheduled_tasks(status, next_run)`,
+  );
+
   // Add is_main column if it doesn't exist (migration for existing DBs)
   try {
     database.exec(
@@ -157,6 +163,15 @@ export function initDatabase(): void {
 
   // Migrate from JSON files if they exist
   migrateJsonState();
+
+  // Ensure a clean flush on process exit
+  process.on('exit', () => {
+    try {
+      db.close();
+    } catch {
+      /* best-effort */
+    }
+  });
 }
 
 /** @internal - for tests only. Creates a fresh in-memory database. */
@@ -375,6 +390,19 @@ export function getMessagesSince(
     .all(chatJid, sinceTimestamp, `${botPrefix}:%`, limit) as NewMessage[];
 }
 
+export function getLastBotMessageTimestamp(
+  chatJid: string,
+  botPrefix: string,
+): string | undefined {
+  const row = db
+    .prepare(
+      `SELECT MAX(timestamp) as ts FROM messages
+       WHERE chat_jid = ? AND (is_bot_message = 1 OR content LIKE ?)`,
+    )
+    .get(chatJid, `${botPrefix}:%`) as { ts: string | null } | undefined;
+  return row?.ts ?? undefined;
+}
+
 export function createTask(
   task: Omit<ScheduledTask, 'last_run' | 'last_result'>,
 ): void {
@@ -469,9 +497,10 @@ export function updateTask(
 }
 
 export function deleteTask(id: string): void {
-  // Delete child records first (FK constraint)
-  db.prepare('DELETE FROM task_run_logs WHERE task_id = ?').run(id);
-  db.prepare('DELETE FROM scheduled_tasks WHERE id = ?').run(id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM task_run_logs WHERE task_id = ?').run(id);
+    db.prepare('DELETE FROM scheduled_tasks WHERE id = ?').run(id);
+  })();
 }
 
 export function getDueTasks(): ScheduledTask[] {

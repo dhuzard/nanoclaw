@@ -48,24 +48,41 @@ See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for full configuration options.
 
 ## Architecture
 
-```
-WhatsApp / Gmail
-│
-▼
-SQLite DB ◄─────────────────────────────────┐
-│ polling loop (every 2s)               │
-▼                                       │
-Group Queue (per-group, max 5 concurrent)   │
-│                                       │
-▼                                       │
-Docker Container (Claude Agent SDK)         │
-│ MCP tools: send_message,              │
-│ schedule_task, tasks, gmail…          │
-▼                                       │
-Filesystem IPC ─────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph channels["Channels"]
+        WA["WhatsApp"]
+        GM["Gmail"]
+    end
+
+    DB[("SQLite\nmessage store")]
+
+    subgraph runtime["Host Runtime · Node.js"]
+        LOOP["polling loop · every 2s"]
+        CHECK{"@mapp trigger?"}
+        QUEUE["Group Queue\nper-group · max 5 concurrent"]
+    end
+
+    subgraph container["Ephemeral Container · Docker"]
+        AGENT["Claude Agent\nClaude Agent SDK"]
+        MCP["MCP Tools\nsend · schedule · tasks · knowledge base · gmail"]
+        AGENT --> MCP
+    end
+
+    WS[("Persistent Workspace\nper-group mount")]
+
+    WA & GM -->|inbound| DB
+    DB --> LOOP
+    LOOP --> CHECK
+    CHECK -- yes --> QUEUE
+    CHECK -- "no · accumulate" --> DB
+    QUEUE -- spawn --> container
+    WS <-- mount --> container
+    container -- filesystem IPC --> QUEUE
+    QUEUE -- outbound --> WA & GM
 ```
 
-Single Node.js process. Each group runs agents in an isolated Linux container — only explicitly mounted directories are accessible. Credentials never enter containers; API keys are injected at request time via OneCLI Agent Vault.
+Single Node.js process. A fresh container is spawned per agent invocation, then discarded — keeping execution state clean. Each group's persistent workspace is mounted into the container, so memory survives across sessions while groups stay isolated from each other. Credentials never enter containers; API keys are injected at request time via OneCLI Agent Vault.
 
 ## Trigger
 

@@ -18,33 +18,33 @@ Built on [NanoClaw](https://github.com/qwibitai/nanoclaw) — a lightweight, con
 
 ## Architecture
 
-
+```
 WhatsApp / Gmail
 │
 ▼
 SQLite DB ◄─────────────────────────────────┐
-│ polling loop (every 2s) │
-▼ │
-Group Queue (per-group, max 5 concurrent) │
-│ │
-▼ │
-Docker Container (Claude Agent SDK) │
-│ MCP tools: send_message, │
-│ schedule_task, tasks, gmail… │
-▼ │
-Filesystem IPC ───────────────────────────── ┘
-
+│ polling loop (every 2s)               │
+▼                                       │
+Group Queue (per-group, max 5 concurrent)   │
+│                                       │
+▼                                       │
+Docker Container (Claude Agent SDK)         │
+│ MCP tools: send_message,              │
+│ schedule_task, tasks, gmail…          │
+▼                                       │
+Filesystem IPC ─────────────────────────────┘
+```
 
 Single Node.js process. Each group runs agents in an isolated Linux container — only explicitly mounted directories are accessible. Credentials never enter containers; API keys are injected at request time via OneCLI Agent Vault.
 
 ## Trigger
 
-
+```
 @mapp what did we decide about the pricing model last week?
 @mapp add "review Q2 OKRs" to my task list for Friday
 @mapp summarize my unread emails from this morning
 @mapp schedule a weekly digest every Monday at 8am
-
+```
 
 ## Key Files
 
@@ -64,32 +64,41 @@ Single Node.js process. Each group runs agents in an isolated Linux container �
 ## Development
 
 ```bash
-npm run dev        # Run with hot reload
-npm run build      # Compile TypeScript
-npm run test       # Run vitest unit tests
+npm run dev           # Run with hot reload
+npm run build         # Compile TypeScript
+npm run test          # Run vitest unit tests
 ./container/build.sh  # Rebuild agent container
+```
 
 Restart the service:
 
+```bash
 # Linux
 systemctl --user restart nanoclaw
 
 # macOS
 launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+```
 
-Security Model
-Agents run in Docker containers, not behind application-level permission checks
-Only mounted directories are accessible inside containers
-Credentials never enter containers — outbound requests route through OneCLI Agent Vault
-Mount allowlist at ~/.config/nanoclaw/mount-allowlist.json blocks sensitive paths (.ssh, .env, etc.)
-Trigger-gated: only @mapp messages in registered groups invoke the agent
-Requirements
-Linux or macOS
-Node.js 20+
-Claude Code
-Docker
-Based On
-This is a personal adaptation of NanoClaw by qwibitai — a minimal, container-isolated Claude agent framework. The core architecture, container isolation model, and skill system come from NanoClaw. This fork adds our startup-specific configuration: @mapp trigger, knowledge base pipeline, meeting notes, Google Tasks integration, and startup-focused group memory.
+## Security Model
 
-License
+- Agents run in Docker containers, not behind application-level permission checks
+- Only mounted directories are accessible inside containers
+- Credentials never enter containers — outbound requests route through OneCLI Agent Vault
+- Mount allowlist at `~/.config/nanoclaw/mount-allowlist.json` blocks sensitive paths (`.ssh`, `.env`, etc.)
+- Trigger-gated: only `@mapp` messages in registered groups invoke the agent
+
+## Requirements
+
+- Linux or macOS
+- Node.js 20+
+- Claude Code
+- Docker
+
+## Based On
+
+This is a personal adaptation of [NanoClaw](https://github.com/qwibitai/nanoclaw) by qwibitai — a minimal, container-isolated Claude agent framework. The core architecture, container isolation model, and skill system come from NanoClaw. This fork adds our startup-specific configuration: `@mapp` trigger, knowledge base pipeline, meeting notes, Google Tasks integration, and startup-focused group memory.
+
+## License
+
 MIT

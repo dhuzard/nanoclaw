@@ -1,5 +1,7 @@
 # mappoclaw
 
+![CI](https://github.com/dhuzard/mappoclaw/actions/workflows/ci.yml/badge.svg)
+
 **mappoclaw** is a secured internal AI assistant for our startup — reachable via WhatsApp and email, with access to our knowledge base, meeting notes, and task management. It handles async questions, surfaces context, and helps automate recurring workflows so we can focus on what matters.
 
 Built on [NanoClaw](https://github.com/qwibitai/nanoclaw) — a lightweight, container-isolated Claude agent framework.
@@ -16,35 +18,80 @@ Built on [NanoClaw](https://github.com/qwibitai/nanoclaw) — a lightweight, con
 - **Scheduled tasks** — recurring jobs (morning briefs, weekly digests, etc.)
 - **GitHub** — triage issues and PRs across our tracked repos
 
+## Getting Started
+
+> Prerequisites: Node.js 20+, Docker, [Claude Code](https://claude.ai/code)
+
+```bash
+# 1. Fork this repo, then clone your fork
+git clone https://github.com/<you>/mappoclaw && cd mappoclaw
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment
+cp .env.example .env
+# Edit .env — set ASSISTANT_NAME to your trigger word (e.g. @yourbot)
+
+# 4. Add your Anthropic API key via OneCLI
+npx claude /init-onecli
+
+# 5. Authenticate WhatsApp
+npm run auth
+
+# 6. Register a group and start
+npm run setup
+npm run dev
+```
+
+See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for full configuration options.
+
 ## Architecture
 
+```mermaid
+flowchart TD
+    subgraph channels["Channels"]
+        WA["WhatsApp"]
+        GM["Gmail"]
+    end
 
-WhatsApp / Gmail
-│
-▼
-SQLite DB ◄─────────────────────────────────┐
-│ polling loop (every 2s) │
-▼ │
-Group Queue (per-group, max 5 concurrent) │
-│ │
-▼ │
-Docker Container (Claude Agent SDK) │
-│ MCP tools: send_message, │
-│ schedule_task, tasks, gmail… │
-▼ │
-Filesystem IPC ───────────────────────────── ┘
+    DB[("SQLite\nmessage store")]
 
+    subgraph runtime["Host Runtime · Node.js"]
+        LOOP["polling loop · every 2s"]
+        CHECK{"@mapp trigger?"}
+        QUEUE["Group Queue\nper-group · max 5 concurrent"]
+    end
 
-Single Node.js process. Each group runs agents in an isolated Linux container — only explicitly mounted directories are accessible. Credentials never enter containers; API keys are injected at request time via OneCLI Agent Vault.
+    subgraph container["Ephemeral Container · Docker"]
+        AGENT["Claude Agent\nClaude Agent SDK"]
+        MCP["MCP Tools\nsend · schedule · tasks · knowledge base · gmail"]
+        AGENT --> MCP
+    end
+
+    WS[("Persistent Workspace\nper-group mount")]
+
+    WA & GM -->|inbound| DB
+    DB --> LOOP
+    LOOP --> CHECK
+    CHECK -- yes --> QUEUE
+    CHECK -- "no · accumulate" --> DB
+    QUEUE -- spawn --> container
+    WS <-- mount --> container
+    container -- filesystem IPC --> QUEUE
+    QUEUE -- outbound --> WA & GM
+```
+
+Single Node.js process. A fresh container is spawned per agent invocation, then discarded — keeping execution state clean. Each group's persistent workspace is mounted into the container, so memory survives across sessions while groups stay isolated from each other. Credentials never enter containers; API keys are injected at request time via OneCLI Agent Vault.
 
 ## Trigger
 
-
+```
 @mapp what did we decide about the pricing model last week?
 @mapp add "review Q2 OKRs" to my task list for Friday
 @mapp summarize my unread emails from this morning
 @mapp schedule a weekly digest every Monday at 8am
-
+```
 
 ## Key Files
 
@@ -64,32 +111,55 @@ Single Node.js process. Each group runs agents in an isolated Linux container �
 ## Development
 
 ```bash
-npm run dev        # Run with hot reload
-npm run build      # Compile TypeScript
-npm run test       # Run vitest unit tests
+npm run dev           # Run with hot reload
+npm run build         # Compile TypeScript
+npm run test          # Run vitest unit tests
 ./container/build.sh  # Rebuild agent container
+```
 
 Restart the service:
 
+```bash
 # Linux
 systemctl --user restart nanoclaw
 
 # macOS
 launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+```
 
-Security Model
-Agents run in Docker containers, not behind application-level permission checks
-Only mounted directories are accessible inside containers
-Credentials never enter containers — outbound requests route through OneCLI Agent Vault
-Mount allowlist at ~/.config/nanoclaw/mount-allowlist.json blocks sensitive paths (.ssh, .env, etc.)
-Trigger-gated: only @mapp messages in registered groups invoke the agent
-Requirements
-Linux or macOS
-Node.js 20+
-Claude Code
-Docker
-Based On
-This is a personal adaptation of NanoClaw by qwibitai — a minimal, container-isolated Claude agent framework. The core architecture, container isolation model, and skill system come from NanoClaw. This fork adds our startup-specific configuration: @mapp trigger, knowledge base pipeline, meeting notes, Google Tasks integration, and startup-focused group memory.
+## Security Model
 
-License
+- Agents run in Docker containers, not behind application-level permission checks
+- Only mounted directories are accessible inside containers
+- Credentials never enter containers — outbound requests route through OneCLI Agent Vault
+- Mount allowlist at `~/.config/nanoclaw/mount-allowlist.json` blocks sensitive paths (`.ssh`, `.env`, etc.)
+- Trigger-gated: only `@mapp` messages in registered groups invoke the agent
+
+## Requirements
+
+- Linux or macOS
+- Node.js 20+
+- Claude Code
+- Docker
+
+## Fork This for Your Startup
+
+This repo is designed to be forked. The core framework stays untouched — you only configure what's specific to your team:
+
+| What to change | Where |
+|----------------|-------|
+| Trigger word (e.g. `@mapp`) | `ASSISTANT_NAME` in `.env` |
+| Agent personality, KB conventions | `groups/global/CLAUDE.md` |
+| Main group memory and context | `groups/main/CLAUDE.md` |
+| Channels (WhatsApp is built in) | Run `/add-telegram`, `/add-slack`, etc. |
+| Knowledge base content | `groups/global/knowledge-base/` (gitignored — local only) |
+
+Most customization happens in the `CLAUDE.md` files — they're the agent's long-term memory and instructions, written in plain markdown.
+
+## Based On
+
+This is a personal adaptation of [NanoClaw](https://github.com/qwibitai/nanoclaw) by qwibitai — a minimal, container-isolated Claude agent framework. The core architecture, container isolation model, and skill system come from NanoClaw. This fork adds our startup-specific configuration: `@mapp` trigger, knowledge base pipeline, meeting notes, Google Tasks integration, and startup-focused group memory.
+
+## License
+
 MIT

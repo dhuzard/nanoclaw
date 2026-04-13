@@ -1,5 +1,7 @@
 # mappoclaw
 
+![CI](https://github.com/dhuzard/mappoclaw/actions/workflows/ci.yml/badge.svg)
+
 **mappoclaw** is a secured internal AI assistant for our startup — reachable via WhatsApp and email, with access to our knowledge base, meeting notes, and task management. It handles async questions, surfaces context, and helps automate recurring workflows so we can focus on what matters.
 
 Built on [NanoClaw](https://github.com/qwibitai/nanoclaw) — a lightweight, container-isolated Claude agent framework.
@@ -15,6 +17,34 @@ Built on [NanoClaw](https://github.com/qwibitai/nanoclaw) — a lightweight, con
 - **Google Tasks** — create, complete, and manage tasks across our task lists
 - **Scheduled tasks** — recurring jobs (morning briefs, weekly digests, etc.)
 - **GitHub** — triage issues and PRs across our tracked repos
+
+## Getting Started
+
+> Prerequisites: Node.js 20+, Docker, [Claude Code](https://claude.ai/code)
+
+```bash
+# 1. Fork this repo, then clone your fork
+git clone https://github.com/<you>/mappoclaw && cd mappoclaw
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment
+cp .env.example .env
+# Edit .env — set ASSISTANT_NAME to your trigger word (e.g. @yourbot)
+
+# 4. Add your Anthropic API key via OneCLI
+npx claude /init-onecli
+
+# 5. Authenticate WhatsApp
+npm run auth
+
+# 6. Register a group and start
+npm run setup
+npm run dev
+```
+
+See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for full configuration options.
 
 ## Architecture
 
@@ -94,6 +124,20 @@ launchctl kickstart -k gui/$(id -u)/com.nanoclaw
 - Node.js 20+
 - Claude Code
 - Docker
+
+## Fork This for Your Startup
+
+This repo is designed to be forked. The core framework stays untouched — you only configure what's specific to your team:
+
+| What to change | Where |
+|----------------|-------|
+| Trigger word (e.g. `@mapp`) | `ASSISTANT_NAME` in `.env` |
+| Agent personality, KB conventions | `groups/global/CLAUDE.md` |
+| Main group memory and context | `groups/main/CLAUDE.md` |
+| Channels (WhatsApp is built in) | Run `/add-telegram`, `/add-slack`, etc. |
+| Knowledge base content | `groups/global/knowledge-base/` (gitignored — local only) |
+
+Most customization happens in the `CLAUDE.md` files — they're the agent's long-term memory and instructions, written in plain markdown.
 
 ## Based On
 
